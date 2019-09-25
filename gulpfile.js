@@ -1,5 +1,6 @@
 
 var gulp = require('gulp'),
+    yarn = require('gulp-yarn');
     webserver = require('gulp-webserver'),
     del = require('del'),
     sass = require('gulp-sass'),
@@ -12,10 +13,24 @@ var gulp = require('gulp'),
     buffer = require('vinyl-buffer'),
     uglify = require('gulp-uglify'),
     gutil = require('gulp-util'),
+    connect = require('gulp-connect'),
     ngAnnotate = require('browserify-ngannotate');
 
 var CacheBuster = require('gulp-cachebust');
 var cachebust = new CacheBuster();
+
+/////////////////////////////////////////////////////////////////////////////////////
+//
+// connect to the live reload
+//
+/////////////////////////////////////////////////////////////////////////////////////
+
+gulp.task('connect', function() {
+    connect.server({
+        root: "./",
+        livereload: true
+    });
+});
 
 /////////////////////////////////////////////////////////////////////////////////////
 //
@@ -41,6 +56,18 @@ gulp.task('bower', function() {
 
     return gulp.src(['./bower.json'])
         .pipe(install());
+});
+
+/////////////////////////////////////////////////////////////////////////////////////
+//
+// runs yarn to install frontend dependencies
+//
+/////////////////////////////////////////////////////////////////////////////////////
+
+gulp.task('yarn', function() {
+
+    return gulp.src(['./package.json'])
+        .pipe(yarn());
 });
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -144,10 +171,11 @@ gulp.task('build-js', ['clean'], function() {
 //
 /////////////////////////////////////////////////////////////////////////////////////
 
-gulp.task('build', [ 'clean', 'bower','build-css','build-template-cache', 'jshint', 'build-js'], function() {
+gulp.task('build', [ 'clean', 'yarn','build-css','build-template-cache', 'jshint', 'build-js'], function() {
     return gulp.src('index.html')
         .pipe(cachebust.references())
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest('dist'))
+        .pipe(connect.reload());
 });
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -157,6 +185,7 @@ gulp.task('build', [ 'clean', 'bower','build-css','build-template-cache', 'jshin
 /////////////////////////////////////////////////////////////////////////////////////
 
 gulp.task('watch', function() {
+
     return gulp.watch(['./index.html','./partials/*.html', './styles/*.*css', './js/**/*.js'], ['build']);
 });
 
@@ -166,11 +195,15 @@ gulp.task('watch', function() {
 //
 /////////////////////////////////////////////////////////////////////////////////////
 
-gulp.task('webserver', ['watch','build'], function() {
+gulp.task('webserver', ['connect', 'watch','build'], function() {
+
     gulp.src('.')
         .pipe(webserver({
-            livereload: false,
-            directoryListing: true,
+            livereload: true,
+            directoryListing:  {
+                enable: true,
+                path: 'tmp'
+            },
             open: "http://localhost:8000/dist/index.html"
         }));
 });
@@ -182,6 +215,14 @@ gulp.task('webserver', ['watch','build'], function() {
 /////////////////////////////////////////////////////////////////////////////////////
 
 gulp.task('dev', ['watch', 'webserver']);
+
+/////////////////////////////////////////////////////////////////////////////////////
+//
+// build template cache and run test
+//
+/////////////////////////////////////////////////////////////////////////////////////
+
+gulp.task('testing', ['build-template-cache', 'test']);
 
 /////////////////////////////////////////////////////////////////////////////////////
 //
